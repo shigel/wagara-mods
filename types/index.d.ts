@@ -5,7 +5,7 @@ export type Phase = 'idle' | 'thinking' | 'tool' | 'error' | 'done'
 // 波紋の起点（描画領域に対する 0〜1 の位置）。claude-code の Origin と名前を分ける
 export type RippleOrigin = { x: number; y: number }
 // 和柄を出す場所ごとの出し入れ
-export type Show = { pane: boolean; band: boolean; status: boolean }
+export type Show = { pane: boolean; band: boolean; status: boolean; toast: boolean }
 
 declare module 'claude-code' {
   interface PluginState {

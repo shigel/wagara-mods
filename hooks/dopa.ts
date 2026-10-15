@@ -27,18 +27,18 @@ export function dopaCss(phase: Phase): string {
     // 乱：色の回転を止め、紅と朱で激しく明滅しながら震える
     return `${base}
 .dopa{animation:none}
-[pathLength]{--col:#E9546B;animation:zap ${sec(1.2)} linear infinite,flash .16s steps(2) infinite,jitter .1s steps(2) infinite;
+[pathLength]{--col:#E9546B;animation:zap ${sec(1.2)} linear infinite,flash 1.4s ease-in-out infinite,jitter 1.6s ease-in-out infinite;
   animation-delay:calc(var(--t) * -${sec(4.8)}),0s,0s;transform-box:fill-box}
 @keyframes flash{50%{stroke:#EB6101}}
 @keyframes jitter{50%{transform:translate(1.2px,-1px)}}`
   }
   if (phase === 'done') {
-    // 開花：中心から一斉に白く光って描き上がり、虹色へほどけていく
+    // 開花：うっすら見えている線が中心から白く光って描き上がり、虹色へほどけていく
     return `${base}
-[pathLength]{stroke-dashoffset:1;animation:burst 1.4s cubic-bezier(.1,.8,.2,1) forwards,cool 3.6s ease-out forwards;
-  animation-delay:calc(var(--t) * 1.1s),calc(var(--t) * 1.1s)}
-@keyframes burst{from{stroke-dashoffset:1;stroke-width:5;opacity:0}to{stroke-dashoffset:0;stroke-width:1.6;opacity:1}}
-@keyframes cool{0%{stroke:#fff}100%{stroke:var(--col,hsl(calc(var(--t) * 900deg) 92% 62%))}}`
+[pathLength]{animation:burst 3.4s ease-in-out both,cool 6s ease-in-out both;
+  animation-delay:calc(var(--t) * 2.2s),calc(var(--t) * 2.2s)}
+@keyframes burst{from{stroke-dashoffset:.6;stroke-width:1.4;opacity:.35}60%{stroke-width:2.6}to{stroke-dashoffset:0;stroke-width:1.6;opacity:1}}
+@keyframes cool{0%{stroke:var(--col,hsl(calc(var(--t) * 900deg) 92% 62%))}35%{stroke:#fff}100%{stroke:var(--col,hsl(calc(var(--t) * 900deg) 92% 62%))}}`
   }
 
   return base

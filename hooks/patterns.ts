@@ -125,19 +125,20 @@ export const PHASE_CSS: Record<Phase, string> = {
   // 低いコントラストで、作業中の演出との差を際立たせる
   idle: `[pathLength]{stroke-dasharray:1 1;stroke-width:var(--w,1.1);animation:calm 20s ease-in-out infinite;animation-delay:calc(var(--t) * -40s)}
 @keyframes calm{0%{stroke-dashoffset:.7;opacity:.08}50%{stroke-dashoffset:0;opacity:.42}100%{stroke-dashoffset:-.7;opacity:.08}}`,
-  // 思索：線の上を光の粒が流れていく
-  thinking: `[pathLength]{stroke-dasharray:.04 .16;stroke-width:var(--w,1.8);animation:flow 2.6s linear infinite;animation-delay:calc(var(--t) * -5.2s)}
-@keyframes flow{from{stroke-dashoffset:0;opacity:.5}50%{opacity:1}to{stroke-dashoffset:-1;opacity:.5}}`,
-  // 波紋：ツールを呼んだ場所から、速い波紋が4重に広がる
-  tool: `[pathLength]{stroke-dasharray:1 1;animation:draw 2.4s cubic-bezier(.3,0,.2,1) infinite;animation-delay:calc(var(--t) * -9.6s)}`,
-  // 乱：朱に変わり、細かく震えて明滅する
-  error: `[pathLength]{--col:${SHU};stroke-dasharray:.3 .05 .1 .05;animation:jitter .14s steps(2) infinite,flick 1.2s ease-in-out infinite;animation-delay:0s,calc(var(--t) * -3.6s)}
-@keyframes jitter{50%{transform:translate(.8px,-.6px)}}
-@keyframes flick{0%,100%{opacity:.25}40%{opacity:1}60%{opacity:.55}}`,
-  // 開花：中心から外へ、全体の線が一斉に描き上がって光る
-  done: `[pathLength]{stroke-dasharray:1 1;stroke-dashoffset:1;animation:bloom 1.6s cubic-bezier(.2,.7,.2,1) forwards,shine 4s ease-out forwards;animation-delay:calc(var(--t) * 1.4s),calc(var(--t) * 1.4s)}
-@keyframes bloom{from{stroke-dashoffset:1;opacity:.2}to{stroke-dashoffset:0;opacity:1}}
-@keyframes shine{0%{stroke:${GLOW};stroke-width:2.4}100%{stroke:var(--col,${AME});stroke-width:1.4}}`,
+  // 思索：線の上を光の粒がゆっくり流れていく（濃さは凪と開花の中間）
+  thinking: `[pathLength]{stroke-dasharray:.05 .15;stroke-width:var(--w,1.5);animation:flow 6s linear infinite;animation-delay:calc(var(--t) * -12s)}
+@keyframes flow{from{stroke-dashoffset:0;opacity:.4}50%{opacity:.7}to{stroke-dashoffset:-1;opacity:.4}}`,
+  // 波紋：ツールを呼んだ場所から、やわらかな波紋が広がる（濃さは凪と開花の中間）
+  tool: `[pathLength]{stroke-dasharray:1 1;stroke-width:var(--w,1.3);animation:ripple 7s ease-in-out infinite;animation-delay:calc(var(--t) * -21s)}
+@keyframes ripple{0%{stroke-dashoffset:.6;opacity:.25}50%{stroke-dashoffset:0;opacity:.7}100%{stroke-dashoffset:-.6;opacity:.25}}`,
+  // 乱：朱に変わり、ゆっくり揺れながら明滅する
+  error: `[pathLength]{--col:${SHU};stroke-dasharray:.3 .05 .1 .05;animation:sway 1.8s ease-in-out infinite,flick 3s ease-in-out infinite;animation-delay:calc(var(--t) * -1.8s),calc(var(--t) * -6s)}
+@keyframes sway{0%,100%{transform:translate(0,0)}50%{transform:translate(.8px,-.6px)}}
+@keyframes flick{0%,100%{opacity:.35}50%{opacity:.85}}`,
+  // 開花：うっすら見えている線が、中心から外へゆっくり描き上がって光る
+  done: `[pathLength]{stroke-dasharray:1 1;animation:bloom 3.2s ease-in-out both,shine 6s ease-in-out both;animation-delay:calc(var(--t) * 2s),calc(var(--t) * 2s)}
+@keyframes bloom{from{stroke-dashoffset:.6;opacity:.3}to{stroke-dashoffset:0;opacity:1}}
+@keyframes shine{0%{stroke:var(--col,${AME});stroke-width:1.3}35%{stroke:${GLOW};stroke-width:1.9}100%{stroke:var(--col,${AME});stroke-width:1.4}}`,
 }
 
 // SVG の上限（131072 文字）に収まるよう、描く面積の上限を決めておく
@@ -145,8 +146,9 @@ const MAX_AREA = 900 * 1100
 const SVG_LIMIT = 130000
 
 export function fitSize(size: Size): Size {
-  const w = Math.max(160, Math.round(size.w))
-  const h = Math.max(160, Math.round(size.h))
+  // 帯（高さ26px）も描けるよう、下限は小さく取る
+  const w = Math.max(24, Math.round(size.w))
+  const h = Math.max(24, Math.round(size.h))
   const k = Math.min(1, Math.sqrt(MAX_AREA / (w * h)))
 
   return { w: Math.round(w * k), h: Math.round(h * k) }

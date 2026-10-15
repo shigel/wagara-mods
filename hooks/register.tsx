@@ -13,8 +13,9 @@ const turns = atom({ plugin: 'wagara-obi', key: 'turns' } as const, 0)
 const phase = atom({ plugin: 'wagara-obi', key: 'phase' } as const, 'idle')
 const origin = atom({ plugin: 'wagara-obi', key: 'origin' } as const, CENTER)
 const isDopa = atom({ plugin: 'wagara-obi', key: 'isDopa' } as const, false)
-const show = atom({ plugin: 'wagara-obi', key: 'show' } as const, { pane: true, band: true, status: true })
-const PLACES = ['pane', 'band', 'status'] as const
+// 既定はステータスラインだけ。ペイン・帯・トーストは +pane などで出す
+const show = atom({ plugin: 'wagara-obi', key: 'show' } as const, { pane: false, band: false, status: true, toast: false })
+const PLACES = ['pane', 'band', 'status', 'toast'] as const
 const DOPA_WORDS = ['dopagaki', 'dopa', 'ドパガキ']
 
 const MODES: readonly Mode[] = [...PATTERNS, 'auto', 'off']
@@ -63,7 +64,7 @@ export function parseArgs(args: string): WagaraArgs {
       result.isDopa = true
     } else if (lower === 'normal' || word === 'ノーマル') {
       result.isDopa = false
-    } else if (/^[+-](pane|band|status)$/.test(lower)) {
+    } else if (/^[+-](pane|band|status|toast)$/.test(lower)) {
       // +status で出す、-status でしまう（pane・band も同じ）
       const place = lower.slice(1) as keyof Show
       result.show = { ...result.show, [place]: lower.startsWith('+') }
@@ -87,9 +88,13 @@ async function patternNow($: EngineInterface): Promise<Pattern | null> {
   return currentPattern(await read($, mode), await read($, turns))
 }
 
-function announce($: EngineInterface, pattern: Pattern, timeoutMs = 8000) {
+// 柄が替わったときのトースト。-toast（既定）のときは出さない
+async function announce($: EngineInterface, pattern: Pattern) {
+  if ((await read($, show)).toast !== true) {
+    return
+  }
   const { name, meaning } = LABELS[pattern]
-  $.ui.toast(`${name} ─ ${meaning}`, { timeoutMs })
+  $.ui.toast(`${name} ─ ${meaning}`, { timeoutMs: 8000 })
 }
 
 // ステータスライン。作業中（思索・波紋）だけ記号が回る（再読み込みで止まり、作り直される）
@@ -212,8 +217,10 @@ export const register: Register = on => {
     const arg = e.args.trim()
     // /wagara toast：トーストの見え方を試す（今の柄で10秒）
     if (arg === 'toast') {
+      // 試すためのコマンドなので、-toast のときも出す
       const pattern = (await patternNow($)) ?? 'seigaiha'
-      announce($, pattern, 10000)
+      const { name, meaning } = LABELS[pattern]
+      $.ui.toast(`${name} ─ ${meaning}`, { timeoutMs: 10000 })
 
       return { text: `${LABELS[pattern].name}のトーストを10秒表示しました` }
     }
@@ -242,7 +249,6 @@ export const register: Register = on => {
       return { text: '和柄をしまいました' }
     }
     const before = await patternNow($)
-    const wasDopa = await read($, isDopa)
     if (wanted.mode !== undefined) {
       const next = wanted.mode
       await update($, mode, () => next)
@@ -266,10 +272,8 @@ export const register: Register = on => {
     }
     const pattern = (await patternNow($)) ?? 'seigaiha'
     const isDopaNow = await read($, isDopa)
-    if (isDopaNow !== wasDopa) {
-      $.ui.toast(isDopaNow ? 'ドパガキ全開 ── 和柄が光って脈打ちます' : 'ドパガキを鎮めました', { timeoutMs: 6000 })
-    } else if (pattern !== before) {
-      announce($, pattern)
+    if (pattern !== before) {
+      await announce($, pattern)
     }
 
     const how = (await read($, mode)) === 'auto' ? `${LABELS[pattern].name}（ターンごとに移り変わる）` : LABELS[pattern].name
@@ -277,7 +281,7 @@ export const register: Register = on => {
     const where = PLACES.map(p => `${places[p] ? '+' : '-'}${p}`).join(' ')
     const state = PHASE_NAMES[await read($, phase)]
     const skipped = wanted.unknown.length > 0 ? `\n分からない語は無視しました: ${wanted.unknown.join(' ')}` : ''
-    const usage = `使い方: /wagara [柄] [状態] [表示] [場所]（空白区切りで組み合わせ可）。柄: ${MODES.join(' | ')}、状態: ${PHASES.join(' | ')}、表示: dopagaki | normal、場所: +pane -pane +band -band +status -status、ほか: demo | toast`
+    const usage = `使い方: /wagara [柄] [状態] [表示] [場所]（空白区切りで組み合わせ可）。柄: ${MODES.join(' | ')}、状態: ${PHASES.join(' | ')}、表示: dopagaki | normal、場所: +pane -pane +band -band +status -status +toast -toast、ほか: demo | toast`
 
     return { text: `柄: ${how}／状態: ${state}／表示: ${look}／場所: ${where}${skipped}\n${usage}` }
   })
@@ -289,11 +293,13 @@ export const register: Register = on => {
     return next(e)
   }).catch(($, e, next) => (next.called ? undefined : next(e)))
 
-  // 波紋：ツールを呼ぶたびに別の場所から波紋。失敗したら乱
+  // 波紋：ツール実行に入ったときだけ起点を変える（呼ぶたびに描き直すと画面がちらつくため）。失敗したら乱
   on('tool.call', async ($, e, next) => {
-    toolCount += 1
-    await update($, origin, () => randomOrigin(toolCount))
-    await setPhase($, 'tool')
+    if ((await read($, phase)) !== 'tool') {
+      toolCount += 1
+      await update($, origin, () => randomOrigin(toolCount))
+      await setPhase($, 'tool')
+    }
     const result = await next(e)
     if (result.deny === undefined && result.isError === true) {
       await setPhase($, 'error')
@@ -310,7 +316,7 @@ export const register: Register = on => {
     await setPhase($, 'done')
     settleLater($)
     if (after !== null && after !== before) {
-      announce($, after)
+      await announce($, after)
     }
 
     return next(e)

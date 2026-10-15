@@ -40,6 +40,7 @@ describe('柄の選び方', () => {
     expect(parseArgs('')).toEqual({ unknown: [] })
     expect(parseArgs('籠目 -status +band')).toEqual({ mode: 'kagome', show: { status: false, band: true }, unknown: [] })
     expect(parseArgs('-pane 矢絣 立涌')).toEqual({ mode: 'tatewaku', show: { pane: false }, unknown: [] })
+    expect(parseArgs('auto normal +status +pane +toast')).toEqual({ mode: 'auto', isDopa: false, show: { status: true, pane: true, toast: true }, unknown: [] })
   })
 
   test('ツールの波紋の起点は毎回ちがい、端に寄りすぎない', async () => {
@@ -76,9 +77,16 @@ describe('描画', () => {
     expect(statusText('shippo', 'idle', 0, true)).toBe('✦ 七宝・凪・ドパガキ')
   })
 
+  test('ちらつかない：細かい階段状の明滅を使わず、どの状態も線が見えた状態から始まる', async () => {
+    for (const css of Object.values(PHASE_CSS)) {
+      expect(css.includes('steps(')).toBe(false)
+      expect(/stroke-dashoffset:1[;}]/.test(css)).toBe(false)
+    }
+  })
+
   test('状態ごとに線の動きがちがう', async () => {
     expect(PHASE_CSS.thinking).toContain('flow')
-    expect(PHASE_CSS.error).toContain('jitter')
+    expect(PHASE_CSS.error).toContain('sway')
     expect(PHASE_CSS.done).toContain('bloom')
     expect(new Set(Object.values(PHASE_CSS)).size).toBe(5)
   })
@@ -89,20 +97,12 @@ describe('描画', () => {
     expect([0, 1, 2, 3].map(f => statusText('seigaiha', 'thinking', f).slice(0, 1)).join('')).toBe('◜◝◞◟')
   })
 
-  test('帯は細い Svg（Desktop）と1行の Client（terminal）で描く', async $ => {
-    const BAND = {
-      plugin: 'wagara-obi',
-      component: 'AbovePrompt',
-      props: { hasSurvey: false, isWorking: true, maxRows: 10, bodyColumns: 80, scroll: { offset: 0, bodyRows: 10 }, view: {} },
-    } as const
-    const desk = await $.ui.mount({ ...BAND, surface: 'desktop' })
-    const svg = await desk.find({ type: 'Svg' })
-    expect(svg?.props.height).toBe(26)
-    expect(String(svg?.props.source).length).toBeLessThan(131072)
-    await desk.unmount()
-    const term = await $.ui.mount({ ...BAND, surface: 'terminal' })
-    expect((await term.find({ type: 'Client' }))?.props.height).toBe(1)
-    await term.unmount()
+  test('帯の大きさ（高さ26・半分の縮尺）でも7つの柄が上限内に描ける', async () => {
+    for (const p of PATTERNS) {
+      const svg = wagaraSvg(p, 'tool', { size: { w: 1200, h: 26 }, scale: 0.5 })
+      expect(svg).toContain('height="26"')
+      expect(svg.length).toBeLessThan(131072)
+    }
   })
 
   test('ターミナルの文字列は幅ぴったりで、ずらすと流れる', async () => {
