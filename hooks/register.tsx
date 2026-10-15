@@ -40,6 +40,31 @@ export function parseMode(args: string): Mode | null {
   return ALIASES[word] ?? MODES.find(m => m === word.toLowerCase()) ?? null
 }
 
+export type WagaraArgs = { mode?: Mode; phase?: Phase; isDopa?: boolean; unknown: string[] }
+
+// 空白区切りの語を左から読み、柄・状態・表示ごとに後の語を優先する
+export function parseArgs(args: string): WagaraArgs {
+  const result: WagaraArgs = { unknown: [] }
+  for (const word of args.trim().split(/\s+/).filter(w => w !== '')) {
+    const lower = word.toLowerCase()
+    const asMode = parseMode(word)
+    const asPhase = PHASES.find(p => p === lower)
+    if (asMode !== null) {
+      result.mode = asMode
+    } else if (asPhase !== undefined) {
+      result.phase = asPhase
+    } else if (DOPA_WORDS.includes(lower)) {
+      result.isDopa = true
+    } else if (lower === 'normal' || word === 'ノーマル') {
+      result.isDopa = false
+    } else {
+      result.unknown = [...result.unknown, word]
+    }
+  }
+
+  return result
+}
+
 // ツールを呼ぶたびに、波紋の起点を帯やペインの中のどこかへ散らす
 export function randomOrigin(seed: number): RippleOrigin {
   const x = Math.abs(Math.sin(seed * 12.9898) * 43758.5453) % 1
@@ -196,36 +221,10 @@ export const register: Register = on => {
 
       return { text: `デモを始めました（約${total}秒、全${DEMO_STEPS.length}場面）。止めるときはもう一度 /wagara demo\n\n${demoTable()}` }
     }
-    // /wagara normal：ドパガキを解除して、ふだんの線に戻す
-    if (arg === 'normal' || arg === 'ノーマル') {
-      await update($, isDopa, () => false)
-      await setPhase($, await read($, phase))
-
-      return { text: 'ノーマル表示に戻しました' }
-    }
-    // /wagara dopagaki：ドパガキ（虹色・ネオン・脈動）を切り替える
-    if (DOPA_WORDS.includes(arg.toLowerCase())) {
-      const isOn = await update($, isDopa, v => !v)
-      await $.ui.open({ id: PANE, title: '和柄' })
-      await setPhase($, await read($, phase))
-      $.ui.toast(isOn ? 'ドパガキ全開 ── 和柄が光って脈打ちます' : 'ドパガキを鎮めました', { timeoutMs: 6000 })
-
-      return { text: isOn ? 'ドパガキ: オン' : 'ドパガキ: オフ' }
-    }
-    // /wagara idle|thinking|tool|error|done：状態の演出を試す
-    const tryPhase = PHASES.find(p => p === arg)
-    if (tryPhase !== undefined) {
-      await update($, origin, () => randomOrigin(Date.now()))
-      await setPhase($, tryPhase)
-      if (tryPhase === 'done') {
-        settleLater($)
-      }
-
-      return { text: `演出を試しています: ${tryPhase}` }
-    }
-    const picked = parseMode(arg)
-    if (picked === 'off') {
-      await update($, mode, () => picked)
+    // 柄・状態・表示は空白区切りで組み合わせられる（例: /wagara seigaiha thinking dopagaki）
+    const wanted = parseArgs(arg)
+    if (wanted.mode === 'off') {
+      await update($, mode, () => 'off')
       await update($, isDopa, () => false)
       await $.ui.close({ id: PANE })
       await setPhase($, 'idle')
@@ -233,19 +232,38 @@ export const register: Register = on => {
       return { text: '和柄をしまいました' }
     }
     const before = await patternNow($)
-    if (picked !== null) {
-      await update($, mode, () => picked)
+    const wasDopa = await read($, isDopa)
+    if (wanted.mode !== undefined) {
+      const next = wanted.mode
+      await update($, mode, () => next)
+    }
+    if (wanted.isDopa !== undefined) {
+      const next = wanted.isDopa
+      await update($, isDopa, () => next)
+    }
+    await $.ui.open({ id: PANE, title: '和柄' })
+    if (wanted.phase !== undefined) {
+      await update($, origin, () => randomOrigin(Date.now()))
+    }
+    await setPhase($, wanted.phase ?? (await read($, phase)))
+    if (wanted.phase === 'done') {
+      settleLater($)
     }
     const pattern = (await patternNow($)) ?? 'seigaiha'
-    await $.ui.open({ id: PANE, title: '和柄' })
-    await setPhase($, await read($, phase))
-    if (pattern !== before) {
+    const isDopaNow = await read($, isDopa)
+    if (isDopaNow !== wasDopa) {
+      $.ui.toast(isDopaNow ? 'ドパガキ全開 ── 和柄が光って脈打ちます' : 'ドパガキを鎮めました', { timeoutMs: 6000 })
+    } else if (pattern !== before) {
       announce($, pattern)
     }
-    const how = (await read($, mode)) === 'auto' ? 'ターンごとに柄が移り変わります' : `${LABELS[pattern].name}を表示しています`
 
-    const look = (await read($, isDopa)) ? 'ドパガキ（/wagara normal で戻る）' : 'ノーマル'
-    return { text: `${how}。表示: ${look}。使い方: /wagara ${MODES.join(' | ')} | demo | toast | dopagaki | normal | ${PHASES.join(' | ')}` }
+    const how = (await read($, mode)) === 'auto' ? `${LABELS[pattern].name}（ターンごとに移り変わる）` : LABELS[pattern].name
+    const look = isDopaNow ? 'ドパガキ（/wagara normal で戻る）' : 'ノーマル'
+    const state = PHASE_NAMES[await read($, phase)]
+    const skipped = wanted.unknown.length > 0 ? `\n分からない語は無視しました: ${wanted.unknown.join(' ')}` : ''
+    const usage = `使い方: /wagara [柄] [状態] [表示]（空白区切りで組み合わせ可）。柄: ${MODES.join(' | ')}、状態: ${PHASES.join(' | ')}、表示: dopagaki | normal、ほか: demo | toast`
+
+    return { text: `柄: ${how}／状態: ${state}／表示: ${look}${skipped}\n${usage}` }
   })
 
   // 思索：プロンプトを受けたら線の上を光が流れ始める。飾りの失敗でプロンプトを止めない

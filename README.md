@@ -44,10 +44,17 @@ Claude Build Night Tokyo（2026-10-15）で作りました。
 | `/wagara auto` | ターンごとに柄を移す |
 | `/wagara off` | しまう |
 | `/wagara demo` | 全演出を説明付きで約1分で見せる。もう一度で止める |
-| `/wagara dopagaki` | ドパガキ向けの虹色ネオンが脈打つモードに切り替える |
+| `/wagara dopagaki` | ドパガキ向けの虹色ネオンが脈打つモードにする |
 | `/wagara normal` | ドパガキを解除 |
 | `/wagara idle` `thinking` `tool` `error` `done` | 各状態の演出を試す |
 | `/wagara toast` | トーストの見え方を試す |
+
+柄・状態・表示は、空白で区切って組み合わせられます。同じ種類の語が並んだときは後ろの語が優先されます。
+
+```
+/wagara seigaiha thinking dopagaki
+/wagara 麻の葉 error normal
+```
 
 ## 対応している画面
 

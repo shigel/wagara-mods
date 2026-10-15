@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { PHASE_CSS, glyphRow, statusText, wagaraSvg } from './patterns'
-import { DEMO_STEPS, currentPattern, demoTable, parseMode, randomOrigin } from './register'
+import { DEMO_STEPS, currentPattern, demoTable, parseArgs, parseMode, randomOrigin } from './register'
 
 const PHASES = ['idle', 'thinking', 'tool', 'error', 'done'] as const
 const PATTERNS = ['seigaiha', 'asanoha', 'shippo'] as const
@@ -30,6 +30,14 @@ describe('柄の選び方', () => {
     for (const ph of PHASES) {
       expect(table.some(row => row.includes(`\`${ph}\``))).toBe(true)
     }
+  })
+
+  test('/wagara は柄・状態・表示を空白区切りで組み合わせられる', async () => {
+    expect(parseArgs('seigaiha thinking dopagaki')).toEqual({ mode: 'seigaiha', phase: 'thinking', isDopa: true, unknown: [] })
+    expect(parseArgs('麻の葉 error normal')).toEqual({ mode: 'asanoha', phase: 'error', isDopa: false, unknown: [] })
+    expect(parseArgs('shippo  唐草 done')).toEqual({ mode: 'shippo', phase: 'done', unknown: ['唐草'] })
+    expect(parseArgs('seigaiha shippo')).toEqual({ mode: 'shippo', unknown: [] })
+    expect(parseArgs('')).toEqual({ unknown: [] })
   })
 
   test('ツールの波紋の起点は毎回ちがい、端に寄りすぎない', async () => {
