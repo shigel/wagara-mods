@@ -1,0 +1,9 @@
+{
+  "name": "wagara-obi",
+  "version": "0.1.0",
+  "description": "青海波・麻の葉・七宝の線が、Claude の作業に合わせて描かれ、流れ、咲く和柄アニメーション",
+  "author": { "name": "Shigeru Saito" },
+  "repository": "https://github.com/shigel/wagara-mods",
+  "license": "MIT",
+  "types": "./types/index.d.ts"
+}

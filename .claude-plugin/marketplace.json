@@ -1,0 +1,6 @@
+{
+  "name": "wagara-mods",
+  "description": "和柄の線が Claude の作業に合わせて動く Claude Code mods",
+  "owner": { "name": "Shigeru Saito" },
+  "plugins": [{ "name": "wagara-obi", "source": "./" }]
+}
