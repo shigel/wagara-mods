@@ -1,5 +1,6 @@
 import type { Pattern, Phase, RippleOrigin } from '../types'
 import { DOPA_SPARKLE, GLOW_FILTER, dopaCss } from './dopa'
+import { kagome, kikko, tatewaku, yagasuri } from './more'
 
 // 描画領域の大きさ（CSS px）。ペインの大きさに合わせて毎回決める。背景は透過
 export type Size = { w: number; h: number }
@@ -10,12 +11,16 @@ const AME = '#DEB068' // 飴色：線
 const SHU = '#EB6101' // 朱色：触れたところ・乱れ
 const GLOW = '#FFE7B8' // 開花の光
 
-export const PATTERNS: readonly Pattern[] = ['seigaiha', 'asanoha', 'shippo']
+export const PATTERNS: readonly Pattern[] = ['seigaiha', 'asanoha', 'shippo', 'kikko', 'kagome', 'yagasuri', 'tatewaku']
 
 export const LABELS: Record<Pattern, { name: string; meaning: string }> = {
   seigaiha: { name: '青海波', meaning: '穏やかな波がどこまでも続く。未来永劫の平穏を願う文様' },
   asanoha: { name: '麻の葉', meaning: '真っ直ぐ早く育つ麻にあやかり、健やかな成長と魔除けを願う文様' },
   shippo: { name: '七宝', meaning: '円が途切れず連なる。円満と人の縁の広がりを願う文様' },
+  kikko: { name: '亀甲', meaning: '亀の甲羅の六角形。長寿と吉兆を願う文様' },
+  kagome: { name: '籠目', meaning: '竹籠の編み目。魔を見張る目として、魔除けを願う文様' },
+  yagasuri: { name: '矢絣', meaning: '射た矢は戻らない。門出と一途な思いを託す文様' },
+  tatewaku: { name: '立涌', meaning: '立ち昇る蒸気。運気の上昇を願う文様' },
 }
 
 export const PHASE_NAMES: Record<Phase, string> = {
@@ -29,7 +34,7 @@ export const PHASE_NAMES: Record<Phase, string> = {
 const n = (v: number) => Math.round(v * 100) / 100
 
 // 波紋の起点からの距離を 0〜1 に正規化する。各状態の CSS がこれを開始のずれに使う
-type Dist = (x: number, y: number) => number
+export type Dist = (x: number, y: number) => number
 
 function distFrom(origin: RippleOrigin, { w, h }: Size): Dist {
   const ox = origin.x * w
@@ -104,7 +109,15 @@ function shippo(size: Size, dist: Dist): string {
   return circles.join('')
 }
 
-const BODIES: Record<Pattern, (size: Size, dist: Dist) => string> = { seigaiha, asanoha, shippo }
+const BODIES: Record<Pattern, (size: Size, dist: Dist) => string> = {
+  seigaiha,
+  asanoha,
+  shippo,
+  kikko,
+  kagome,
+  yagasuri,
+  tatewaku,
+}
 
 // 状態ごとの線の動き。--t（起点からの距離 0〜1）で開始をずらし、波として見せる
 export const PHASE_CSS: Record<Phase, string> = {
@@ -173,7 +186,7 @@ function renderSvg(pattern: Pattern, phase: Phase, size: Size, scale: number, or
 svg{display:block;background:transparent}
 path,circle{fill:none;stroke-linecap:round}
 .hit{fill:#000;fill-opacity:0;stroke:none;pointer-events:all}
-path.m{pointer-events:all}
+path.m,g.m>path{pointer-events:all}
 [pathLength]{stroke:var(--col,${AME});stroke-width:var(--w,1.4);transform-box:fill-box;
   transition:stroke 1.6s ease-out,stroke-width 1.6s ease-out}
 @keyframes draw{0%{stroke-dashoffset:1;opacity:.15}45%,55%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:-1;opacity:.15}}
@@ -191,6 +204,10 @@ export const SPINNER: Record<Pattern, readonly string[]> = {
   seigaiha: ['◜', '◝', '◞', '◟'],
   asanoha: ['✶', '✷', '✸', '✹', '✸', '✷'],
   shippo: ['○', '◎', '◉', '◎'],
+  kikko: ['⬡', '⬢'],
+  kagome: ['△', '▽'],
+  yagasuri: ['›', '»'],
+  tatewaku: ['(', ')'],
 }
 
 const PHASE_GLYPH: Partial<Record<Phase, string>> = { idle: '〜', error: '✕', done: '❀' }
@@ -208,6 +225,10 @@ export const GLYPHS: Record<Pattern, readonly [string, string]> = {
   seigaiha: ['◠ ', ' ◠'],
   asanoha: ['╲╱', '╱╲'],
   shippo: ['()', ')('],
+  kikko: ['/\\_', '\\_/'],
+  kagome: ['/\\', '\\/'],
+  yagasuri: ['>>', '<<'],
+  tatewaku: ['( )', ') ('],
 }
 
 export function glyphRow(pattern: Pattern, row: 0 | 1, columns: number, offset: number): string {

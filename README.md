@@ -33,14 +33,27 @@ Claude Build Night Tokyo（2026-10-15）で作りました。
 | `error` | 乱 | 朱に変わって震える |
 | `done` | 開花 | ターンが終わると、中心から一斉に咲き上がる |
 
-柄は `auto` のとき、ターンごとに 青海波 → 麻の葉 → 七宝 と移ります。
+## 柄
+
+| 指定 | 柄 | 意味 |
+|---|---|---|
+| `seigaiha` / `青海波` | 青海波 | 穏やかな波がどこまでも続く。未来永劫の平穏 |
+| `asanoha` / `麻の葉` | 麻の葉 | 健やかな成長と魔除け |
+| `shippo` / `七宝` | 七宝 | 円満と人の縁の広がり |
+| `kikko` / `亀甲` | 亀甲 | 長寿と吉兆 |
+| `kagome` / `籠目` | 籠目 | 魔を見張る目。魔除け |
+| `yagasuri` / `矢絣` | 矢絣 | 射た矢は戻らない。門出と一途な思い |
+| `tatewaku` / `立涌` | 立涌 | 立ち昇る蒸気。運気の上昇 |
+
+`auto` のときは、ターンごとに上の順で柄が移ります。
 
 ## コマンド
 
 | コマンド | 内容 |
 |---|---|
 | `/wagara` | ペインを開き、使い方を表示 |
-| `/wagara seigaiha` `asanoha` `shippo`（`青海波` `麻の葉` `七宝` でも可） | 柄を固定 |
+| `/wagara seigaiha` など（上の「柄」の指定） | 柄を固定 |
+| `/wagara -pane` `+pane` `-band` `+band` `-status` `+status` | 表示場所ごとにしまう・出す |
 | `/wagara auto` | ターンごとに柄を移す |
 | `/wagara off` | しまう |
 | `/wagara demo` | 全演出を説明付きで約1分で見せる。もう一度で止める |
@@ -49,11 +62,11 @@ Claude Build Night Tokyo（2026-10-15）で作りました。
 | `/wagara idle` `thinking` `tool` `error` `done` | 各状態の演出を試す |
 | `/wagara toast` | トーストの見え方を試す |
 
-柄・状態・表示は、空白で区切って組み合わせられます。同じ種類の語が並んだときは後ろの語が優先されます。
+柄・状態・表示・表示場所は、空白で区切って組み合わせられます。同じ種類の語が並んだときは後ろの語が優先されます。
 
 ```
 /wagara seigaiha thinking dopagaki
-/wagara 麻の葉 error normal
+/wagara 籠目 error normal -status
 ```
 
 ## 対応している画面

@@ -4,11 +4,11 @@ import { PHASE_CSS, glyphRow, statusText, wagaraSvg } from './patterns'
 import { DEMO_STEPS, currentPattern, demoTable, parseArgs, parseMode, randomOrigin } from './register'
 
 const PHASES = ['idle', 'thinking', 'tool', 'error', 'done'] as const
-const PATTERNS = ['seigaiha', 'asanoha', 'shippo'] as const
+const PATTERNS = ['seigaiha', 'asanoha', 'shippo', 'kikko', 'kagome', 'yagasuri', 'tatewaku'] as const
 
 describe('柄の選び方', () => {
-  test('auto はターンごとに青海波→麻の葉→七宝と巡る', async () => {
-    expect([0, 1, 2, 3].map(t => currentPattern('auto', t))).toEqual(['seigaiha', 'asanoha', 'shippo', 'seigaiha'])
+  test('auto はターンごとに7つの柄を巡る', async () => {
+    expect([0, 1, 2, 3, 6, 7].map(t => currentPattern('auto', t))).toEqual(['seigaiha', 'asanoha', 'shippo', 'kikko', 'tatewaku', 'seigaiha'])
     expect(currentPattern('off', 5)).toBe(null)
   })
 
@@ -38,6 +38,8 @@ describe('柄の選び方', () => {
     expect(parseArgs('shippo  唐草 done')).toEqual({ mode: 'shippo', phase: 'done', unknown: ['唐草'] })
     expect(parseArgs('seigaiha shippo')).toEqual({ mode: 'shippo', unknown: [] })
     expect(parseArgs('')).toEqual({ unknown: [] })
+    expect(parseArgs('籠目 -status +band')).toEqual({ mode: 'kagome', show: { status: false, band: true }, unknown: [] })
+    expect(parseArgs('-pane 矢絣 立涌')).toEqual({ mode: 'tatewaku', show: { pane: false }, unknown: [] })
   })
 
   test('ツールの波紋の起点は毎回ちがい、端に寄りすぎない', async () => {

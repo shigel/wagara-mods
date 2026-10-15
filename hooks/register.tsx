@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Mode, Pattern, Phase, RippleOrigin } from '../types'
+import type { Mode, Pattern, Phase, RippleOrigin, Show } from '../types'
 import { CENTER, LABELS, PATTERNS, PHASE_NAMES, fitSize, statusText, wagaraSvg } from './patterns'
 
 const PANE = 'wagara'
@@ -13,6 +13,8 @@ const turns = atom({ plugin: 'wagara-obi', key: 'turns' } as const, 0)
 const phase = atom({ plugin: 'wagara-obi', key: 'phase' } as const, 'idle')
 const origin = atom({ plugin: 'wagara-obi', key: 'origin' } as const, CENTER)
 const isDopa = atom({ plugin: 'wagara-obi', key: 'isDopa' } as const, false)
+const show = atom({ plugin: 'wagara-obi', key: 'show' } as const, { pane: true, band: true, status: true })
+const PLACES = ['pane', 'band', 'status'] as const
 const DOPA_WORDS = ['dopagaki', 'dopa', 'ドパガキ']
 
 const MODES: readonly Mode[] = [...PATTERNS, 'auto', 'off']
@@ -21,6 +23,10 @@ const ALIASES: Record<string, Mode> = {
   青海波: 'seigaiha',
   麻の葉: 'asanoha',
   七宝: 'shippo',
+  亀甲: 'kikko',
+  籠目: 'kagome',
+  矢絣: 'yagasuri',
+  立涌: 'tatewaku',
 }
 
 export function currentPattern(m: Mode, turnCount: number): Pattern | null {
@@ -40,7 +46,7 @@ export function parseMode(args: string): Mode | null {
   return ALIASES[word] ?? MODES.find(m => m === word.toLowerCase()) ?? null
 }
 
-export type WagaraArgs = { mode?: Mode; phase?: Phase; isDopa?: boolean; unknown: string[] }
+export type WagaraArgs = { mode?: Mode; phase?: Phase; isDopa?: boolean; show?: Partial<Show>; unknown: string[] }
 
 // 空白区切りの語を左から読み、柄・状態・表示ごとに後の語を優先する
 export function parseArgs(args: string): WagaraArgs {
@@ -57,6 +63,10 @@ export function parseArgs(args: string): WagaraArgs {
       result.isDopa = true
     } else if (lower === 'normal' || word === 'ノーマル') {
       result.isDopa = false
+    } else if (/^[+-](pane|band|status)$/.test(lower)) {
+      // +status で出す、-status でしまう（pane・band も同じ）
+      const place = lower.slice(1) as keyof Show
+      result.show = { ...result.show, [place]: lower.startsWith('+') }
     } else {
       result.unknown = [...result.unknown, word]
     }
@@ -99,7 +109,7 @@ async function setPhase($: EngineInterface, next: Phase) {
   await update($, phase, () => next)
   stopSpin()
   const pattern = await patternNow($)
-  if (pattern === null) {
+  if (pattern === null || !(await read($, show)).status) {
     $.ui.status(undefined)
     return
   }
@@ -187,10 +197,10 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'wagara',
-      description: '和柄を開く・柄や状態の演出を替える（青海波・麻の葉・七宝・auto・off・toast・dopagaki・凪/思索/波紋/乱/開花）',
-      argumentHint: '[seigaiha|asanoha|shippo|auto|off|demo|toast|dopagaki|normal|idle|thinking|tool|error|done]',
+      description: '和柄の柄・状態・表示・表示場所を替える（空白区切りで組み合わせ可）',
+      argumentHint: '[柄] [状態] [dopagaki|normal] [+|-pane|band|status] / demo / toast / off',
     })
-    if ((await read($, mode)) !== 'off') {
+    if ((await read($, mode)) !== 'off' && (await read($, show)).pane) {
       void $.ui.open({ id: PANE, title: '和柄' })
     }
     await setPhase($, 'idle')
@@ -241,7 +251,12 @@ export const register: Register = on => {
       const next = wanted.isDopa
       await update($, isDopa, () => next)
     }
-    await $.ui.open({ id: PANE, title: '和柄' })
+    const places = await update($, show, s => ({ ...s, ...wanted.show }))
+    if (places.pane) {
+      await $.ui.open({ id: PANE, title: '和柄' })
+    } else {
+      await $.ui.close({ id: PANE })
+    }
     if (wanted.phase !== undefined) {
       await update($, origin, () => randomOrigin(Date.now()))
     }
@@ -259,11 +274,12 @@ export const register: Register = on => {
 
     const how = (await read($, mode)) === 'auto' ? `${LABELS[pattern].name}（ターンごとに移り変わる）` : LABELS[pattern].name
     const look = isDopaNow ? 'ドパガキ（/wagara normal で戻る）' : 'ノーマル'
+    const where = PLACES.map(p => `${places[p] ? '+' : '-'}${p}`).join(' ')
     const state = PHASE_NAMES[await read($, phase)]
     const skipped = wanted.unknown.length > 0 ? `\n分からない語は無視しました: ${wanted.unknown.join(' ')}` : ''
-    const usage = `使い方: /wagara [柄] [状態] [表示]（空白区切りで組み合わせ可）。柄: ${MODES.join(' | ')}、状態: ${PHASES.join(' | ')}、表示: dopagaki | normal、ほか: demo | toast`
+    const usage = `使い方: /wagara [柄] [状態] [表示] [場所]（空白区切りで組み合わせ可）。柄: ${MODES.join(' | ')}、状態: ${PHASES.join(' | ')}、表示: dopagaki | normal、場所: +pane -pane +band -band +status -status、ほか: demo | toast`
 
-    return { text: `柄: ${how}／状態: ${state}／表示: ${look}${skipped}\n${usage}` }
+    return { text: `柄: ${how}／状態: ${state}／表示: ${look}／場所: ${where}${skipped}\n${usage}` }
   })
 
   // 思索：プロンプトを受けたら線の上を光が流れ始める。飾りの失敗でプロンプトを止めない
@@ -329,7 +345,7 @@ export const register: Register = on => {
   // プロンプトの上の細い帯。文様を半分の大きさで、同じ状態の演出を流す
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const pattern = await patternNow($)
-    if (e.props.hasSurvey || pattern === null) {
+    if (e.props.hasSurvey || pattern === null || !(await read($, show)).band) {
       return next(e)
     }
     const now = await read($, phase)
