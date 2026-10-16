@@ -1,6 +1,7 @@
 import type { Pattern, Phase, RippleOrigin } from '../types'
 import { DOPA_SPARKLE, GLOW_FILTER, dopaCss } from './dopa'
 import { kagome, kikko, tatewaku, yagasuri } from './more'
+import { VEIL_CSS } from './veil'
 
 // 描画領域の大きさ（CSS px）。ペインの大きさに合わせて毎回決める。背景は透過
 export type Size = { w: number; h: number }
@@ -119,23 +120,19 @@ const BODIES: Record<Pattern, (size: Size, dist: Dist) => string> = {
   tatewaku,
 }
 
-// 状態ごとの線の動き。--t（起点からの距離 0〜1）で開始をずらし、波として見せる
+// 状態ごとの線の見え方
 export const PHASE_CSS: Record<Phase, string> = {
-  // 凪：ゆっくり描かれては消える。中心から3重の波紋
-  // 低いコントラストで、作業中の演出との差を際立たせる
-  idle: `[pathLength]{stroke-dasharray:1 1;stroke-width:var(--w,1.1);animation:calm 20s ease-in-out infinite;animation-delay:calc(var(--t) * -40s)}
-@keyframes calm{0%{stroke-dashoffset:.7;opacity:.08}50%{stroke-dashoffset:0;opacity:.42}100%{stroke-dashoffset:-.7;opacity:.08}}`,
-  // 思索：線の上を光の粒がゆっくり流れていく（濃さは凪と開花の中間）
-  thinking: `[pathLength]{stroke-dasharray:.05 .15;stroke-width:var(--w,1.5);animation:flow 6s linear infinite;animation-delay:calc(var(--t) * -12s)}
-@keyframes flow{from{stroke-dashoffset:0;opacity:.4}50%{opacity:.7}to{stroke-dashoffset:-1;opacity:.4}}`,
-  // 波紋：ツールを呼んだ場所から、やわらかな波紋が広がる（濃さは凪と開花の中間）
-  tool: `[pathLength]{stroke-dasharray:1 1;stroke-width:var(--w,1.3);animation:ripple 7s ease-in-out infinite;animation-delay:calc(var(--t) * -21s)}
-@keyframes ripple{0%{stroke-dashoffset:.6;opacity:.25}50%{stroke-dashoffset:0;opacity:.7}100%{stroke-dashoffset:-.6;opacity:.25}}`,
-  // 乱：朱に変わり、ゆっくり揺れながら明滅する
-  error: `[pathLength]{--col:${SHU};stroke-dasharray:.3 .05 .1 .05;animation:sway 1.8s ease-in-out infinite,flick 3s ease-in-out infinite;animation-delay:calc(var(--t) * -1.8s),calc(var(--t) * -6s)}
-@keyframes sway{0%,100%{transform:translate(0,0)}50%{transform:translate(.8px,-.6px)}}
-@keyframes flick{0%,100%{opacity:.35}50%{opacity:.85}}`,
-  // 開花：線はそろって描き上がり、中心から広がる円のマスク（BLOOM_MASK）で外へ咲かせる。
+  // 凪・思索・波紋・乱の線は、線ごとには動かさない（短い線が1本ずつ現れてカタカタ見えるため）。
+  // 動きは veil.ts（外側の svg だけを満ち引きさせる）が受け持つ。ここは線の太さと色だけ
+  // 凪：細く静かに。間を大きく取る
+  idle: `[pathLength]{stroke-width:var(--w,1.1)}`,
+  // 思索：凪より少し太く
+  thinking: `[pathLength]{stroke-width:var(--w,1.3)}`,
+  // 波紋：思索と凪の間の太さ
+  tool: `[pathLength]{stroke-width:var(--w,1.25)}`,
+  // 乱：朱に変わる（揺れは veil.ts で柄全体をまとめて揺らす）
+  error: `[pathLength]{--col:${SHU};stroke-width:var(--w,1.3)}`,
+  // 開花：線はそろって描き上がり、中心から広がる円のマスク（bloomMasked）で外へ咲かせる。
   // 線ごとに開始をずらすと、端から端までの長い線が1本ずつ跳ねてカクカク見えるため、ずらさない。
   // 太さは動かさない（全部の線の描き直しになり重い）。色だけを光らせる
   done: `[pathLength]{stroke-dasharray:1 1;animation:bloom 3.2s ease-out both,shine 6s ease-in-out both}
@@ -163,7 +160,8 @@ export type SvgOptions = { size?: Size; scale?: number; origin?: RippleOrigin; i
 export function wagaraSvg(pattern: Pattern, phase: Phase, options: SvgOptions = {}): string {
   const requested = options.size ?? DEFAULT_SIZE
   const scale = options.scale ?? 1
-  const origin = phase === 'tool' ? (options.origin ?? CENTER) : CENTER
+  // 波紋の起点で線の遅れを変えるのはドパガキだけ。ふだんは起点によらず同じ SVG にし、ツールのたびに作り直さない
+  const origin = phase === 'tool' && options.isDopa === true ? (options.origin ?? CENTER) : CENTER
   let size = fitSize({ w: requested.w / scale, h: requested.h / scale })
   const isDopa = options.isDopa ?? false
   let svg = renderSvg(pattern, phase, size, scale, origin, isDopa)
@@ -180,7 +178,7 @@ function renderSvg(pattern: Pattern, phase: Phase, size: Size, scale: number, or
   const [w, h] = [Math.round(size.w * scale), Math.round(size.h * scale)]
   const body = BODIES[pattern](size, distFrom(origin, size))
   // ドパガキは状態ごとの演出の代わりに、虹色・ネオン・脈動の演出を重ねる
-  const motion = isDopa ? dopaCss(phase) : PHASE_CSS[phase]
+  const motion = isDopa ? dopaCss(phase) : phase === 'done' ? PHASE_CSS.done : `${PHASE_CSS[phase]}\n${VEIL_CSS[phase]}`
   const lit = isDopa
     ? `<defs>${GLOW_FILTER}</defs><g filter="url(#glow)"><g class="sway"><g class="dopa">${body}</g></g></g>`
     : body

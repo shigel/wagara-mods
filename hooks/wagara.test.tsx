@@ -48,7 +48,7 @@ describe('柄の選び方', () => {
 
   test('help は柄・状態・表示・場所の指定をすべて載せる', async () => {
     const help = helpText()
-    for (const word of [...PATTERNS, ...PHASES, 'dopagaki', 'normal', '+status', '-toast', '+all', 'demo']) {
+    for (const word of [...PATTERNS, ...PHASES, 'dopagaki', 'normal', '+status', '-toast', '+all', 'demo', 'next']) {
       expect(help).toContain(`\`${word}\``)
     }
   })
@@ -106,12 +106,21 @@ describe('描画', () => {
     expect(wagaraSvg('kagome', 'tool', { size: { w: 600, h: 1000 } })).not.toContain('bloomMask')
   })
 
-  test('状態ごとに線の動きがちがう', async () => {
-    expect(PHASE_CSS.thinking).toContain('flow')
-    expect(PHASE_CSS.error).toContain('sway')
-    expect(PHASE_CSS.done).toContain('bloom')
-    expect(new Set(Object.values(PHASE_CSS)).size).toBe(5)
+  test('軽く滑らか：凪は動かず、思索・波紋・乱は外側の svg だけを動かす', async () => {
+    const look = (ph: (typeof PHASES)[number]) => wagaraSvg('asanoha', ph, { size: { w: 600, h: 1000 }, origin: { x: 0.2, y: 0.3 } })
+    expect(look('idle').includes('animation')).toBe(false)
+    expect(look('thinking')).toContain('svg{animation:tide')
+    expect(look('tool')).toContain('svg{animation:surge')
+    expect(look('error')).toContain('svg{animation:tremor')
+    for (const ph of ['idle', 'thinking', 'tool', 'error'] as const) {
+      // 中の線や円にはアニメーションを付けない（毎コマ全体を描き直さない）
+      expect(PHASE_CSS[ph].includes('animation')).toBe(false)
+      expect(look(ph)).not.toContain('mask=')
+    }
+    // 波紋は起点が変わっても同じ SVG（ツールのたびに作り直さない）
+    expect(look('tool')).toBe(wagaraSvg('asanoha', 'tool', { size: { w: 600, h: 1000 }, origin: { x: 0.8, y: 0.7 } }))
   })
+
 
   test('ステータスラインは状態名を添え、作業中だけ記号が回る', async () => {
     expect(statusText('seigaiha', 'idle', 3)).toBe('〜 青海波・凪')

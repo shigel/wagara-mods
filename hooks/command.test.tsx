@@ -37,6 +37,15 @@ test('/wagara help は使い方を出すだけで、ペインもステータス�
   expect(calls.statuses).toEqual([])
 })
 
+test('既定は off：何も指定しなければ、ペインもステータスラインも出さない', async ($, on) => {
+  const calls = engineBeneath(on)
+  on('session.start', (_$, e) => ({ cwd: e.cwd }) as never)
+  await $.session.start({ cwd: '/tmp', surface: 'terminal', isInteractive: true } as never)
+  expect(await run($, '')).toContain('しまっています')
+  expect(calls.opens).toBe(0)
+  expect(calls.statuses.every(s => s === undefined)).toBe(true)
+})
+
 test('ほかの指定ではペインを開かず、+pane のときだけ開く', async ($, on) => {
   const calls = engineBeneath(on)
   await run($, '籠目 thinking dopagaki')
@@ -49,6 +58,7 @@ test('ほかの指定ではペインを開かず、+pane のときだけ開く',
 test('状態を続けて切り替えても、回る記号のタイマーは1本だけ残る', async ($, on) => {
   const calls = engineBeneath(on)
   // 並んで走らせる（ツールの並列呼び出しと同じ形）
+  await run($, 'auto')
   await Promise.all([run($, 'thinking'), run($, 'tool'), run($, 'thinking')])
   calls.statuses.length = 0
   await calls.clock.advance(220 * 10)
@@ -68,7 +78,7 @@ test('開花は5秒で凪へ戻り、記号の回転も止まる', async ($, on)
 
 test('off はペインを閉じて -pane として覚え、ステータスラインも消す', async ($, on) => {
   const calls = engineBeneath(on)
-  await run($, '+pane')
+  await run($, 'auto +pane')
   expect(await run($, 'off')).toContain('しまいました')
   expect(calls.statuses.at(-1)).toBe(undefined)
   expect(await showNow($)).toContain('-pane')
@@ -77,7 +87,7 @@ test('off はペインを閉じて -pane として覚え、ステータスライ
 
 test('-status でステータスラインを消し、+status で戻す', async ($, on) => {
   const calls = engineBeneath(on)
-  await run($, '-status')
+  await run($, 'auto -status')
   expect(calls.statuses.at(-1)).toBe(undefined)
   await run($, '+status')
   expect(calls.statuses.at(-1)).toContain('・')
@@ -145,4 +155,14 @@ test('off のまま +pane としてもペインを開かない', async ($, on) =
   const reply = await run($, '+pane thinking')
   expect(calls.opens).toBe(0)
   expect(reply).toContain('しまっています')
+})
+
+test('/wagara next は auto ならターンを、固定の柄なら次の柄へ1つ送る', async ($, on) => {
+  engineBeneath(on)
+  await run($, 'auto')
+  expect(await run($, 'next')).toContain('麻の葉')
+  await run($, '立涌')
+  expect(await run($, 'next')).toContain('柄: 青海波')
+  await run($, 'off')
+  expect(await run($, 'next')).toContain('しまっています')
 })

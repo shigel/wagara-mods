@@ -8,7 +8,7 @@ const PANE = 'wagara'
 const BAND_HEIGHT = 26
 const SPIN_MS = 220
 const BLOOM_MS = 5000
-const mode = atom({ plugin: 'wagara-obi', key: 'mode' } as const, 'auto')
+const mode = atom({ plugin: 'wagara-obi', key: 'mode' } as const, 'off')
 const turns = atom({ plugin: 'wagara-obi', key: 'turns' } as const, 0)
 const phase = atom({ plugin: 'wagara-obi', key: 'phase' } as const, 'idle')
 const origin = atom({ plugin: 'wagara-obi', key: 'origin' } as const, CENTER)
@@ -72,7 +72,7 @@ export function helpText(): string {
     `| 状態 | ${phases} |`,
     '| 表示 | `dopagaki`（虹色ネオン）・`normal`（ふだん） |',
     '| 場所 | `+pane` `-pane`・`+band` `-band`・`+status` `-status`・`+toast` `-toast`・`+all` `-all`（4か所まとめて） |',
-    '| その他 | `demo`（全演出を約1分で見せる）・`toast`（トーストを試す）・`help`（この表示） |',
+    '| その他 | `demo`（全演出を約1分で見せる）・`next`（柄を1つ送る）・`toast`（トーストを試す）・`help`（この表示） |',
     '',
     '例: `/wagara 籠目 thinking dopagaki -status`',
   ].join('\n')
@@ -340,6 +340,27 @@ async function turnOff($: EngineInterface) {
   await setPhase($, 'idle')
 }
 
+async function nextPattern($: EngineInterface): Promise<string> {
+  const now = await read($, mode)
+  if (now === 'off') {
+    return '和柄はしまっています。/wagara auto で出してから送ってください'
+  }
+  if (now === 'auto') {
+    await update($, turns, t => t + 1)
+  } else {
+    const i = PATTERNS.indexOf(now)
+    const following = PATTERNS[(i + 1) % PATTERNS.length] ?? 'seigaiha'
+    await update($, mode, () => following)
+  }
+  await setPhase($, await read($, phase))
+  const pattern = await patternNow($)
+  if (pattern !== null) {
+    await announce($, pattern)
+  }
+
+  return `${await describeNow($, await read($, show))}\n使い方は /wagara help`
+}
+
 // 指定を反映したあとの、今の柄・状態・表示・場所の一行
 async function describeNow($: EngineInterface, places: Show): Promise<string> {
   const pattern = await patternNow($)
@@ -367,7 +388,7 @@ export const register: Register = on => {
     await $.command.register({
       name: 'wagara',
       description: '和柄の柄・状態・表示・表示場所を替える（空白区切りで組み合わせ可）',
-      argumentHint: '[柄] [状態] [dopagaki|normal] [+|-pane|band|status|toast|all] / demo / toast / help / off',
+      argumentHint: '[柄] [状態] [dopagaki|normal] [+|-pane|band|status|toast|all] / next / demo / toast / help / off',
     })
     // デモの途中で再読み込みされたら、デモ前の設定に戻す（タイマーは再読み込みで消えている）
     const wasDemo = await restoreDemo($)
@@ -385,6 +406,10 @@ export const register: Register = on => {
     // /wagara help：何も変えずに使い方だけを出す
     if (HELP_WORDS.includes(arg.toLowerCase())) {
       return { text: helpText() }
+    }
+    // /wagara next：柄を1つ送る（auto はターンを1つ進め、固定の柄は次の柄に替える）
+    if (arg.toLowerCase() === 'next' || arg === '次') {
+      return { text: await nextPattern($) }
     }
     // /wagara toast：トーストの見え方を試す（今の柄で10秒）
     if (arg.toLowerCase() === 'toast') {
