@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { PHASE_CSS, glyphRow, statusText, wagaraSvg } from './patterns'
-import { DEMO_STEPS, currentPattern, demoTable, parseArgs, parseMode, randomOrigin } from './register'
+import { DEMO_STEPS, currentPattern, demoTable, helpText, parseArgs, parseMode, randomOrigin } from './register'
 
 const PHASES = ['idle', 'thinking', 'tool', 'error', 'done'] as const
 const PATTERNS = ['seigaiha', 'asanoha', 'shippo', 'kikko', 'kagome', 'yagasuri', 'tatewaku'] as const
@@ -19,9 +19,9 @@ describe('柄の選び方', () => {
     expect(parseMode('唐草')).toBe(null)
   })
 
-  test('デモは5つの状態・3つの柄・ドパガキをすべて通る', async () => {
+  test('デモは5つの状態・7つの柄・ドパガキをすべて通る', async () => {
     expect(new Set(DEMO_STEPS.map(s => s.phase)).size).toBe(5)
-    expect(new Set(DEMO_STEPS.map(s => s.pattern)).size).toBe(3)
+    expect([...new Set(DEMO_STEPS.map(s => s.pattern))].sort()).toEqual([...PATTERNS].sort())
     expect(DEMO_STEPS.some(s => s.isDopa) && DEMO_STEPS.some(s => !s.isDopa)).toBe(true)
     expect(DEMO_STEPS.every(s => s.text.length > 0 && s.ms >= 3000)).toBe(true)
     const table = demoTable().split('\n')
@@ -41,6 +41,16 @@ describe('柄の選び方', () => {
     expect(parseArgs('籠目 -status +band')).toEqual({ mode: 'kagome', show: { status: false, band: true }, unknown: [] })
     expect(parseArgs('-pane 矢絣 立涌')).toEqual({ mode: 'tatewaku', show: { pane: false }, unknown: [] })
     expect(parseArgs('auto normal +status +pane +toast')).toEqual({ mode: 'auto', isDopa: false, show: { status: true, pane: true, toast: true }, unknown: [] })
+    expect(parseArgs('矢絣 +all')).toEqual({ mode: 'yagasuri', show: { pane: true, band: true, status: true, toast: true }, unknown: [] })
+    expect(parseArgs('+ALL -band')).toEqual({ show: { pane: true, band: false, status: true, toast: true }, unknown: [] })
+    expect(parseArgs('-all')).toEqual({ show: { pane: false, band: false, status: false, toast: false }, unknown: [] })
+  })
+
+  test('help は柄・状態・表示・場所の指定をすべて載せる', async () => {
+    const help = helpText()
+    for (const word of [...PATTERNS, ...PHASES, 'dopagaki', 'normal', '+status', '-toast', '+all', 'demo']) {
+      expect(help).toContain(`\`${word}\``)
+    }
   })
 
   test('ツールの波紋の起点は毎回ちがい、端に寄りすぎない', async () => {
@@ -53,7 +63,7 @@ describe('柄の選び方', () => {
 })
 
 describe('描画', () => {
-  test('5つの状態と3つの柄のすべてで、上限内・スクリプトなし・背景透過の SVG になる', async () => {
+  test('5つの状態と7つの柄のすべてで、上限内・スクリプトなし・背景透過の SVG になる', async () => {
     for (const p of PATTERNS) {
       for (const ph of PHASES) {
         const svg = wagaraSvg(p, ph, { size: { w: 600, h: 1000 } })
@@ -82,6 +92,18 @@ describe('描画', () => {
       expect(css.includes('steps(')).toBe(false)
       expect(/stroke-dashoffset:1[;}]/.test(css)).toBe(false)
     }
+  })
+
+  test('カクカクしない：開花は線ごとに時間をずらさず、太さも動かさず、円のマスクで広げる', async () => {
+    for (const isDopa of [false, true]) {
+      const svg = wagaraSvg('kagome', 'done', { size: { w: 600, h: 1000 }, isDopa })
+      // 最後に効く線の規則（ドパガキは基本の規則を animation の一括指定で上書きし、ずらしも消える）
+      const rules = svg.slice(0, svg.indexOf('</style>')).split('[pathLength]{')
+      expect(rules.at(-1)?.split('}')[0]?.includes('animation-delay')).toBe(false)
+      expect(/@keyframes (bloom|burst|shine|cool)\{[^@]*stroke-width/.test(svg)).toBe(false)
+      expect(svg).toContain('mask="url(#bloomMask)"')
+    }
+    expect(wagaraSvg('kagome', 'tool', { size: { w: 600, h: 1000 } })).not.toContain('bloomMask')
   })
 
   test('状態ごとに線の動きがちがう', async () => {

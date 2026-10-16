@@ -33,11 +33,10 @@ export function dopaCss(phase: Phase): string {
 @keyframes jitter{50%{transform:translate(1.2px,-1px)}}`
   }
   if (phase === 'done') {
-    // 開花：うっすら見えている線が中心から白く光って描き上がり、虹色へほどけていく
+    // 開花：線がそろって白く光って描き上がり、虹色へほどけていく（中心から広がるのは開花のマスクが受け持つ）
     return `${base}
-[pathLength]{animation:burst 3.4s ease-in-out both,cool 6s ease-in-out both;
-  animation-delay:calc(var(--t) * 2.2s),calc(var(--t) * 2.2s)}
-@keyframes burst{from{stroke-dashoffset:.6;stroke-width:1.4;opacity:.35}60%{stroke-width:2.6}to{stroke-dashoffset:0;stroke-width:1.6;opacity:1}}
+[pathLength]{stroke-width:1.8;animation:burst 3.4s ease-out both,cool 6s ease-in-out both}
+@keyframes burst{from{stroke-dashoffset:.6}to{stroke-dashoffset:0}}
 @keyframes cool{0%{stroke:var(--col,hsl(calc(var(--t) * 900deg) 92% 62%))}35%{stroke:#fff}100%{stroke:var(--col,hsl(calc(var(--t) * 900deg) 92% 62%))}}`
   }
 

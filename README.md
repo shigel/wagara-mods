@@ -23,7 +23,7 @@ Claude Build Night Tokyo（2026-10-15）で作りました。
 | プロンプト上の帯（`+band`） | 同じ演出を細く流す |
 | トースト（`+toast`） | 柄が替わったとき、その意味を一言 |
 
-既定はステータスラインだけです。全部出すなら `/wagara +pane +band +toast` です。
+既定はステータスラインだけです。全部出すなら `/wagara +all`、全部しまうなら `/wagara -all` です（`/wagara +all -band` のように、後ろの語で個別に外せます）。
 
 ## 状態ごとの演出
 
@@ -53,9 +53,10 @@ Claude Build Night Tokyo（2026-10-15）で作りました。
 
 | コマンド | 内容 |
 |---|---|
-| `/wagara` | ペインを開き、使い方を表示 |
+| `/wagara` | 今の柄・状態・表示・場所を表示（何も変えない） |
+| `/wagara help` | 使い方の一覧を表示（何も変えない） |
 | `/wagara seigaiha` など（上の「柄」の指定） | 柄を固定 |
-| `/wagara +pane` `-pane` `+band` `-band` `+status` `-status` `+toast` `-toast` | 表示場所ごとに出す・しまう |
+| `/wagara +pane` `-pane` `+band` `-band` `+status` `-status` `+toast` `-toast` `+all` `-all` | 表示場所ごとに（`all` は4か所まとめて）出す・しまう |
 | `/wagara auto` | ターンごとに柄を移す |
 | `/wagara off` | しまう |
 | `/wagara demo` | 全演出を説明付きで約1分で見せる。もう一度で止める |
@@ -70,6 +71,8 @@ Claude Build Night Tokyo（2026-10-15）で作りました。
 /wagara seigaiha thinking dopagaki
 /wagara 籠目 error normal -status
 ```
+
+設定はそのセッションのあいだだけ保たれます。新しいセッションでは既定（`auto`、ステータスラインだけ）に戻ります。
 
 ## 対応している画面
 

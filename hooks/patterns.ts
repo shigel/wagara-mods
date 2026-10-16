@@ -135,10 +135,12 @@ export const PHASE_CSS: Record<Phase, string> = {
   error: `[pathLength]{--col:${SHU};stroke-dasharray:.3 .05 .1 .05;animation:sway 1.8s ease-in-out infinite,flick 3s ease-in-out infinite;animation-delay:calc(var(--t) * -1.8s),calc(var(--t) * -6s)}
 @keyframes sway{0%,100%{transform:translate(0,0)}50%{transform:translate(.8px,-.6px)}}
 @keyframes flick{0%,100%{opacity:.35}50%{opacity:.85}}`,
-  // 開花：うっすら見えている線が、中心から外へゆっくり描き上がって光る
-  done: `[pathLength]{stroke-dasharray:1 1;animation:bloom 3.2s ease-in-out both,shine 6s ease-in-out both;animation-delay:calc(var(--t) * 2s),calc(var(--t) * 2s)}
-@keyframes bloom{from{stroke-dashoffset:.6;opacity:.3}to{stroke-dashoffset:0;opacity:1}}
-@keyframes shine{0%{stroke:var(--col,${AME});stroke-width:1.3}35%{stroke:${GLOW};stroke-width:1.9}100%{stroke:var(--col,${AME});stroke-width:1.4}}`,
+  // 開花：線はそろって描き上がり、中心から広がる円のマスク（BLOOM_MASK）で外へ咲かせる。
+  // 線ごとに開始をずらすと、端から端までの長い線が1本ずつ跳ねてカクカク見えるため、ずらさない。
+  // 太さは動かさない（全部の線の描き直しになり重い）。色だけを光らせる
+  done: `[pathLength]{stroke-dasharray:1 1;animation:bloom 3.2s ease-out both,shine 6s ease-in-out both}
+@keyframes bloom{from{stroke-dashoffset:.6}to{stroke-dashoffset:0}}
+@keyframes shine{0%,100%{stroke:var(--col,${AME})}35%{stroke:var(--col,${GLOW})}}`,
 }
 
 // SVG の上限（131072 文字）に収まるよう、描く面積の上限を決めておく
@@ -179,9 +181,10 @@ function renderSvg(pattern: Pattern, phase: Phase, size: Size, scale: number, or
   const body = BODIES[pattern](size, distFrom(origin, size))
   // ドパガキは状態ごとの演出の代わりに、虹色・ネオン・脈動の演出を重ねる
   const motion = isDopa ? dopaCss(phase) : PHASE_CSS[phase]
-  const drawn = isDopa
+  const lit = isDopa
     ? `<defs>${GLOW_FILTER}</defs><g filter="url(#glow)"><g class="sway"><g class="dopa">${body}</g></g></g>`
     : body
+  const drawn = phase === 'done' ? bloomMasked(lit, size, isDopa) : lit
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${size.w} ${size.h}" preserveAspectRatio="xMinYMid slice">
 <style>
@@ -199,6 +202,32 @@ ${motion}
 <title>${name}（${PHASE_NAMES[phase]}${isDopa ? '・ドパガキ' : ''}）：${meaning}</title>
 ${drawn}
 </svg>`
+}
+
+// 開花のマスク：外側はうっすら（2割）見せ、中心から縁のやわらかい円が広がって全体を明るくする。
+// その縁を追うように光の輪が2重に走って抜け、完了を告げる。
+// どれも円1枚の transform（scale）と opacity だけで動かす（線を1本ずつ動かさないので、滑らかで軽い）。
+// 円の塗りは style 属性で指定する（全体の CSS の circle{fill:none} に負けないように）
+function bloomMasked(drawn: string, size: Size, isDopa: boolean): string {
+  const [cx, cy] = [size.w / 2, size.h / 2]
+  const r = Math.ceil(Math.hypot(size.w, size.h) / 2 / 0.8)
+  const light = isDopa ? '#FFFFFF' : GLOW
+  const circle = (cls: string, fill: string) =>
+    `<circle class="${cls}" cx="${cx}" cy="${cy}" r="${r}" style="fill:${fill};stroke:none;transform-origin:${cx}px ${cy}px"/>`
+
+  return `<style>.bloom{animation:grow 3.2s cubic-bezier(.2,.6,.3,1) both}
+.front{pointer-events:none;animation:grow 2.6s cubic-bezier(.25,.6,.35,1) both,fade 2.6s ease-in both}
+.front.late{animation-delay:.55s,.55s}
+@keyframes grow{from{transform:scale(0)}to{transform:scale(1)}}
+@keyframes fade{0%{opacity:0}12%{opacity:.95}65%{opacity:.7}100%{opacity:0}}</style>
+<defs><radialGradient id="bloomGrad"><stop offset=".78" stop-color="#fff"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+<radialGradient id="frontGrad"><stop offset=".7" stop-color="${light}" stop-opacity="0"/><stop offset=".86" stop-color="${light}" stop-opacity=".55"/><stop offset=".9" stop-color="${light}" stop-opacity=".22"/><stop offset="1" stop-color="${light}" stop-opacity="0"/></radialGradient>
+<mask id="bloomMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${size.w}" height="${size.h}">
+<rect width="${size.w}" height="${size.h}" style="fill:#333"/>
+${circle('bloom', 'url(#bloomGrad)')}</mask></defs>
+<g mask="url(#bloomMask)">${drawn}</g>
+${circle('front', 'url(#frontGrad)')}
+${circle('front late', 'url(#frontGrad)')}`
 }
 
 // ステータスラインの回転記号。作業中はこれを順に送る
